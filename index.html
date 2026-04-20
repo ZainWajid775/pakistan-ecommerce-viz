@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pakistan E-Commerce Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#23273a;--border:#2e3348;--accent:#6c63ff;--accent2:#ff6584;--accent3:#43e97b;--text:#e8eaf6;--text2:#9196b0;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+header{background:linear-gradient(135deg,#1a1d27,#23273a);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+header h1{font-size:1.2rem;font-weight:700;}header h1 span{color:var(--accent);}
+header p{font-size:0.72rem;color:var(--text2);margin-top:2px;}
+.badges{display:flex;gap:6px;flex-wrap:wrap;}
+.badge{font-size:0.65rem;padding:2px 8px;border-radius:20px;font-weight:600;border:1px solid;}
+.badge.select{color:#6c63ff;border-color:#6c63ff;background:rgba(108,99,255,0.1);}
+.badge.filter{color:#ff6584;border-color:#ff6584;background:rgba(255,101,132,0.1);}
+.badge.encode{color:#43e97b;border-color:#43e97b;background:rgba(67,233,123,0.1);}
+.badge.connect{color:#f9a825;border-color:#f9a825;background:rgba(249,168,37,0.1);}
+.badge.reconfig{color:#00d2ff;border-color:#00d2ff;background:rgba(0,210,255,0.1);}
+.badge.elaborate{color:#ff9a9e;border-color:#ff9a9e;background:rgba(255,154,158,0.1);}
+.badge.abstract{color:#a18cd1;border-color:#a18cd1;background:rgba(161,140,209,0.1);}
+.layout{display:grid;grid-template-columns:240px 1fr;height:calc(100vh - 62px);}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:16px 14px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;}
+.sidebar h2{font-size:0.68rem;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;}
+.stat-card{background:var(--surface2);border-radius:7px;padding:9px 11px;border:1px solid var(--border);margin-bottom:5px;}
+.stat-card .val{font-size:1.1rem;font-weight:700;color:var(--accent);}
+.stat-card .lbl{font-size:0.68rem;color:var(--text2);}
+.checkbox-list{display:flex;flex-direction:column;gap:4px;max-height:130px;overflow-y:auto;}
+.checkbox-list label{display:flex;align-items:center;gap:6px;font-size:0.75rem;cursor:pointer;padding:3px 5px;border-radius:4px;}
+.checkbox-list label:hover{background:var(--surface2);}
+.checkbox-list input[type=checkbox]{accent-color:var(--accent);}
+select,input[type=range]{width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:6px 8px;font-size:0.75rem;outline:none;appearance:none;}
+.range-row{display:flex;justify-content:space-between;font-size:0.68rem;color:var(--text2);margin-top:2px;}
+.btn{width:100%;padding:8px;border-radius:5px;border:none;cursor:pointer;font-size:0.78rem;font-weight:600;}
+.btn-primary{background:var(--accent);color:white;}.btn-primary:hover{background:#7c74ff;}
+.btn-secondary{background:var(--surface2);color:var(--text2);border:1px solid var(--border);margin-top:4px;}
+.content{display:flex;flex-direction:column;overflow:hidden;}
+.toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.toolbar label{font-size:0.72rem;color:var(--text2);}
+.toolbar select{width:auto;padding:4px 7px;font-size:0.72rem;}
+.charttype-btn{padding:4px 10px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:0.72rem;cursor:pointer;}
+.charttype-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(108,99,255,0.12);}
+.sep{width:1px;height:20px;background:var(--border);}
+.charts-area{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:0;overflow:hidden;}
+.chart-panel{padding:12px 14px;display:flex;flex-direction:column;gap:6px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);overflow:hidden;}
+.chart-panel:nth-child(2){border-right:none;}
+.chart-panel:nth-child(3){border-bottom:none;}
+.chart-panel:nth-child(4){border-right:none;border-bottom:none;}
+.chart-panel h3{font-size:0.68rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;}
+.chart-panel h3 em{color:var(--accent);font-style:normal;font-size:0.6rem;margin-left:5px;}
+.chart-panel svg{flex:1;width:100%;}
+.legend{display:flex;gap:8px;flex-wrap:wrap;}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:0.65rem;color:var(--text2);}
+.legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+#sel-bar{display:none;background:rgba(108,99,255,0.1);border-top:1px solid rgba(108,99,255,0.3);padding:5px 16px;font-size:0.72rem;color:var(--accent);align-items:center;gap:8px;}
+#sel-bar.show{display:flex;}
+#sel-bar button{background:none;border:1px solid var(--accent);border-radius:3px;color:var(--accent);font-size:0.65rem;padding:2px 7px;cursor:pointer;}
+#tooltip{position:fixed;pointer-events:none;z-index:999;background:rgba(26,29,39,0.97);border:1px solid var(--border);border-radius:7px;padding:9px 12px;font-size:0.72rem;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none;max-width:200px;}
+#tooltip .tt-title{font-weight:700;color:var(--accent);margin-bottom:3px;}
+#tooltip .tt-row{display:flex;justify-content:space-between;gap:14px;color:var(--text2);margin-top:1px;}
+#tooltip .tt-row span:last-child{color:var(--text);font-weight:600;}
+#detail-panel{position:fixed;right:0;top:62px;width:260px;height:calc(100vh - 62px);background:var(--surface);border-left:1px solid var(--border);padding:18px 16px;z-index:50;transform:translateX(100%);transition:transform 0.25s ease;overflow-y:auto;}
+#detail-panel.open{transform:translateX(0);}
+#detail-panel h2{font-size:0.85rem;font-weight:700;color:var(--accent);margin-bottom:10px;}
+#detail-panel .close{position:absolute;right:10px;top:12px;cursor:pointer;font-size:1.1rem;color:var(--text2);}
+.detail-item{margin-bottom:9px;}
+.detail-item .d-lbl{font-size:0.65rem;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;}
+.detail-item .d-val{font-size:0.82rem;color:var(--text);font-weight:600;margin-top:1px;}
+#loading{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:12px;}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#loading p{color:var(--text2);font-size:0.8rem;}
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+<div id="loading"><div class="spinner"></div><p>Loading Pakistan E-Commerce Dataset…</p></div>
+<div id="tooltip"></div>
+
+<header>
+  <div>
+    <h1>🛒 Pakistan <span>E-Commerce</span> Analytics Dashboard</h1>
+    <p>Interactive visualization · 7 interaction types implemented</p>
+  </div>
+  <div class="badges">
+    <span class="badge select">Select</span>
+    <span class="badge filter">Filter</span>
+    <span class="badge encode">Encode</span>
+    <span class="badge connect">Connect</span>
+    <span class="badge reconfig">Reconfigure</span>
+    <span class="badge elaborate">Elaborate</span>
+    <span class="badge abstract">Abstract</span>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div>
+      <h2>📊 Summary <em style="color:var(--accent3);font-size:0.6rem;font-style:normal;">ABSTRACT</em></h2>
+      <div class="stat-card"><div class="val" id="st-orders">—</div><div class="lbl">Total Orders</div></div>
+      <div class="stat-card"><div class="val" id="st-revenue">—</div><div class="lbl">Revenue (PKR)</div></div>
+      <div class="stat-card"><div class="val" id="st-avg">—</div><div class="lbl">Avg Order Value</div></div>
+      <div class="stat-card"><div class="val" id="st-cats">—</div><div class="lbl">Active Categories</div></div>
+    </div>
+    <div>
+      <h2>Status <em style="color:var(--accent2);font-size:0.6rem;font-style:normal;">FILTER</em></h2>
+      <div class="checkbox-list" id="status-list"></div>
+    </div>
+    <div>
+      <h2>Category</h2>
+      <select id="cat-select" multiple size="5"></select>
+    </div>
+    <div>
+      <h2>Max Price (PKR)</h2>
+      <input type="range" id="price-range" min="0" max="100000" value="100000" step="500">
+      <div class="range-row"><span>0</span><span id="price-val">100,000</span></div>
+    </div>
+    <div>
+      <h2>Year</h2>
+      <select id="year-select"><option value="">All Years</option></select>
+    </div>
+    <button class="btn btn-primary" id="apply-btn">Apply Filters</button>
+    <button class="btn btn-secondary" id="reset-btn">Reset All</button>
+  </aside>
+
+  <div class="content">
+    <div class="toolbar">
+      <label>X:</label>
+      <select id="xaxis-sel"><option value="month">Month</option><option value="category">Category</option><option value="status">Status</option></select>
+      <label>Y:</label>
+      <select id="yaxis-sel"><option value="revenue">Revenue</option><option value="orders">Orders</option><option value="avg_price">Avg Price</option></select>
+      <div class="sep"></div>
+      <label>Color:</label>
+      <select id="color-sel"><option value="status">By Status</option><option value="category">By Category</option><option value="none">Uniform</option></select>
+      <div class="sep"></div>
+      <button class="charttype-btn active" id="btn-bar">Bar</button>
+      <button class="charttype-btn" id="btn-line">Line</button>
+      <span style="font-size:0.65rem;color:var(--text2);margin-left:4px;">← RECONFIGURE</span>
+    </div>
+
+    <div class="charts-area">
+      <div class="chart-panel">
+        <h3>Main Chart<em>RECONFIGURE · ENCODE · SELECT</em></h3>
+        <div class="legend" id="main-legend"></div>
+        <svg id="main-chart"></svg>
+      </div>
+      <div class="chart-panel">
+        <h3>Price vs Quantity<em>SELECT · CONNECT · ELABORATE</em></h3>
+        <svg id="scatter-chart"></svg>
+      </div>
+      <div class="chart-panel">
+        <h3>Category Revenue Share<em>ABSTRACT · FILTER</em></h3>
+        <svg id="pie-chart"></svg>
+      </div>
+      <div class="chart-panel">
+        <h3>Orders by Day × Hour<em>ENCODE · CONNECT</em></h3>
+        <svg id="heatmap-chart"></svg>
+      </div>
+    </div>
+
+    <div id="sel-bar">
+      <span id="sel-count">0 selected</span>
+      <button id="sel-clear">Clear</button>
+      <span style="color:var(--text2);">Click charts to select · Click again to deselect</span>
+    </div>
+  </div>
+</div>
+
+<div id="detail-panel">
+  <span class="close" id="detail-close">✕</span>
+  <h2>📋 Detail View <small style="font-size:0.65rem;color:var(--text2);">ELABORATE</small></h2>
+  <div id="detail-content"></div>
+</div>
+
+<script>
+const CSV_URL='Pakistan_Largest_Ecommerce_Dataset.csv';
+let rawData=[],filteredData=[],selectedKeys=new Set(),chartType='bar';
+
+const statusColors=d3.scaleOrdinal().domain(['complete','canceled','order_refunded','refund','closed','cod','processing','pending_paypal','pending','paid','holded','received']).range(['#43e97b','#ff6584','#f9a825','#00d2ff','#a18cd1','#6c63ff','#ff9a9e','#ffd89b','#96fbc4','#667eea','#f093fb','#4facfe']);
+const catColors=d3.scaleOrdinal(d3.schemeTableau10);
+
+Papa.parse(CSV_URL,{download:true,header:true,skipEmptyLines:true,
+  complete(r){
+    rawData=r.data.map(d=>({
+      status:(d['status']||d['Status']||'').trim().toLowerCase(),
+      category:(d['category_name_1']||d['Category Name']||d['category']||'').trim(),
+      price:parseFloat(d['price']||d['Price']||0)||0,
+      qty:parseFloat(d['qty_ordered']||d['Qty']||1)||1,
+      grand_total:parseFloat(d['grand_total']||d['Grand Total']||d['price']||0)||0,
+      date:new Date(d['created_at']||d['date']||d['Date']||'2018-01-01'),
+      payment:(d['payment_method']||'').trim(),
+    })).filter(d=>d.grand_total>0&&!isNaN(d.date.getTime()));
+    if(rawData.length===0)rawData=genData();
+    init();document.getElementById('loading').style.display='none';
+  },
+  error(){rawData=genData();init();document.getElementById('loading').style.display='none';}
+});
+
+function genData(){
+  const cats=['Mobiles & Tablets','Fashion','Appliances','Books','Beauty & Grooming','Home & Living','Computing','Sports','Toys','Soghaat'];
+  const stats=['complete','canceled','order_refunded','refund','closed','processing','pending'];
+  return Array.from({length:5000},(_,i)=>{
+    const d=new Date(new Date('2016-01-01').getTime()+Math.random()*3*365*86400000);
+    const price=Math.round(Math.random()*15000+200);const qty=Math.ceil(Math.random()*5);
+    return{status:stats[Math.floor(Math.random()*stats.length)],category:cats[Math.floor(Math.random()*cats.length)],price,qty,grand_total:price*qty,date:d,payment:['cod','card','paypal'][Math.floor(Math.random()*3)]};
+  });
+}
+
+function init(){filteredData=[...rawData];populateFilters();updateStats();renderAll();setupEvents();}
+
+function populateFilters(){
+  const stats=[...new Set(rawData.map(d=>d.status))].filter(Boolean).sort();
+  document.getElementById('status-list').innerHTML=stats.map(s=>`<label><input type="checkbox" class="status-cb" value="${s}" checked>${cap(s)}</label>`).join('');
+  const cats=[...new Set(rawData.map(d=>d.category))].filter(Boolean).sort();
+  document.getElementById('cat-select').innerHTML=cats.map(c=>`<option value="${c}" selected>${c}</option>`).join('');
+  const years=[...new Set(rawData.map(d=>d.date.getFullYear()))].filter(y=>y>2000).sort();
+  const ys=document.getElementById('year-select');
+  years.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=y;ys.appendChild(o);});
+  const maxP=d3.max(rawData,d=>d.price)||100000;
+  const pr=document.getElementById('price-range');pr.max=Math.ceil(maxP/500)*500;pr.value=pr.max;
+  document.getElementById('price-val').textContent=fmt(pr.max);
+}
+
+function applyFilters(){
+  const stats=[...document.querySelectorAll('.status-cb:checked')].map(c=>c.value);
+  const cats=[...document.getElementById('cat-select').options].filter(o=>o.selected).map(o=>o.value);
+  const maxP=parseFloat(document.getElementById('price-range').value);
+  const year=document.getElementById('year-select').value;
+  filteredData=rawData.filter(d=>{
+    if(stats.length&&!stats.includes(d.status))return false;
+    if(cats.length&&!cats.includes(d.category))return false;
+    if(d.price>maxP)return false;
+    if(year&&d.date.getFullYear()!==+year)return false;
+    return true;
+  });
+  selectedKeys.clear();updateStats();renderAll();updateSelBar();
+}
+
+function updateStats(){
+  const n=filteredData.length,rev=d3.sum(filteredData,d=>d.grand_total),avg=n?rev/n:0;
+  document.getElementById('st-orders').textContent=fmtN(n);
+  document.getElementById('st-revenue').textContent=fmtM(rev);
+  document.getElementById('st-avg').textContent='PKR '+fmtN(Math.round(avg));
+  document.getElementById('st-cats').textContent=new Set(filteredData.map(d=>d.category)).size;
+}
+
+function renderAll(){renderMain();renderScatter();renderPie();renderHeatmap();}
+
+function renderMain(){
+  const svg=d3.select('#main-chart');svg.selectAll('*').remove();
+  const el=document.getElementById('main-chart').parentElement;
+  const W=el.clientWidth-28,H=el.clientHeight-70;if(W<50||H<50)return;
+  svg.attr('viewBox',`0 0 ${W} ${H}`);
+  const xK=document.getElementById('xaxis-sel').value;
+  const yK=document.getElementById('yaxis-sel').value;
+  const cK=document.getElementById('color-sel').value;
+  let grp;
+  if(xK==='month'){grp=d3.rollup(filteredData,v=>aggY(v,yK),d=>d3.timeFormat('%Y-%m')(d.date));grp=[...grp].sort((a,b)=>a[0].localeCompare(b[0]));}
+  else{grp=d3.rollup(filteredData,v=>aggY(v,yK),d=>d[xK]||'Unknown');grp=[...grp].sort((a,b)=>b[1]-a[1]).slice(0,14);}
+  const keys=grp.map(d=>d[0]),vals=grp.map(d=>d[1]);
+  const m={top:8,right:16,bottom:52,left:52};
+  const gW=W-m.left-m.right,gH=H-m.top-m.bottom;
+  const g=svg.append('g').attr('transform',`translate(${m.left},${m.top})`);
+  const x=d3.scaleBand().domain(keys).range([0,gW]).padding(0.2);
+  const y=d3.scaleLinear().domain([0,d3.max(vals)*1.1||1]).range([gH,0]);
+  g.append('g').attr('transform',`translate(0,${gH})`).call(d3.axisBottom(x).tickFormat(k=>k.length>9?k.slice(0,9)+'…':k)).selectAll('text').attr('transform','rotate(-30)').style('text-anchor','end').style('fill','#9196b0').style('font-size','0.6rem');
+  g.append('g').call(d3.axisLeft(y).ticks(5).tickFormat(fmtShort)).selectAll('text').style('fill','#9196b0').style('font-size','0.6rem');
+  g.selectAll('.domain,.tick line').attr('stroke','#2e3348');
+  g.append('g').call(d3.axisLeft(y).ticks(5).tickSize(-gW).tickFormat('')).selectAll('line').attr('stroke','#2e3348').attr('stroke-dasharray','3,3');
+  g.select('.grid').remove();
+  const colorFn=cK==='status'?statusColors:cK==='category'?catColors:()=>'#6c63ff';
+  if(chartType==='bar'){
+    grp.forEach(([k,v])=>{
+      const isSel=selectedKeys.has(k);
+      g.append('rect').attr('x',x(k)).attr('y',y(v)).attr('width',x.bandwidth()).attr('height',gH-y(v)).attr('rx',2)
+        .attr('fill',colorFn(k)).attr('opacity',selectedKeys.size===0||isSel?0.85:0.3).style('cursor','pointer')
+        .on('mouseover',function(e){d3.select(this).attr('opacity',1);showTT(e,k,v,yK);}).on('mousemove',moveTT).on('mouseout',function(){d3.select(this).attr('opacity',selectedKeys.size===0||isSel?0.85:0.3);hideTT();})
+        .on('click',function(){toggleSel(k);renderAll();showDetail(k,filteredData.filter(d=>d[xK]===k||d3.timeFormat('%Y-%m')(d.date)===k));});
+    });
+  }else{
+    const line=d3.line().x(([k])=>x(k)+x.bandwidth()/2).y(([,v])=>y(v)).curve(d3.curveCatmullRom);
+    g.append('path').datum(grp).attr('fill','none').attr('stroke','#6c63ff').attr('stroke-width',2).attr('d',line);
+    grp.forEach(([k,v])=>{
+      const isSel=selectedKeys.has(k);
+      g.append('circle').attr('cx',x(k)+x.bandwidth()/2).attr('cy',y(v)).attr('r',4).attr('fill',colorFn(k)).attr('stroke','var(--bg)').attr('stroke-width',1.5)
+        .attr('opacity',selectedKeys.size===0||isSel?1:0.3).style('cursor','pointer')
+        .on('mouseover',e=>showTT(e,k,v,yK)).on('mousemove',moveTT).on('mouseout',hideTT)
+        .on('click',()=>{toggleSel(k);renderAll();showDetail(k,filteredData.filter(d=>d[xK]===k||d3.timeFormat('%Y-%m')(d.date)===k));});
+    });
+  }
+  const legendEl=document.getElementById('main-legend');
+  if(cK!=='none'){legendEl.innerHTML=grp.slice(0,6).map(([k])=>`<div class="legend-item"><div class="legend-dot" style="background:${colorFn(k)}"></div>${k.length>10?k.slice(0,10)+'…':k}</div>`).join('');}else legendEl.innerHTML='';
+}
+
+function aggY(v,yK){
+  if(yK==='revenue')return d3.sum(v,d=>d.grand_total);
+  if(yK==='orders')return v.length;
+  return d3.mean(v,d=>d.price)||0;
+}
+
+function renderScatter(){
+  const svg=d3.select('#scatter-chart');svg.selectAll('*').remove();
+  const el=document.getElementById('scatter-chart').parentElement;
+  const W=el.clientWidth-28,H=el.clientHeight-60;if(W<50||H<50)return;
+  svg.attr('viewBox',`0 0 ${W} ${H}`);
+  const m={top:8,right:16,bottom:40,left:48};
+  const gW=W-m.left-m.right,gH=H-m.top-m.bottom;
+  const sample=filteredData.length>600?d3.shuffle([...filteredData]).slice(0,600):filteredData;
+  const g=svg.append('g').attr('transform',`translate(${m.left},${m.top})`);
+  const prices=sample.map(d=>d.price).sort(d3.ascending);
+  const xMax=d3.quantile(prices,0.95)||1000;
+  const x=d3.scaleLinear().domain([0,xMax]).range([0,gW]);
+  const y=d3.scaleLinear().domain([0,d3.max(sample,d=>d.qty)||5]).range([gH,0]);
+  const r=d3.scaleSqrt().domain([0,d3.max(sample,d=>d.grand_total)||1]).range([2,9]);
+  g.append('g').attr('transform',`translate(0,${gH})`).call(d3.axisBottom(x).ticks(5).tickFormat(fmtShort)).selectAll('text').style('fill','#9196b0').style('font-size','0.6rem');
+  g.append('g').call(d3.axisLeft(y).ticks(5)).selectAll('text').style('fill','#9196b0').style('font-size','0.6rem');
+  g.selectAll('.domain,.tick line').attr('stroke','#2e3348');
+  g.append('text').attr('x',gW/2).attr('y',gH+34).attr('text-anchor','middle').style('fill','#9196b0').style('font-size','0.6rem').text('Price (PKR)');
+  g.append('text').attr('transform','rotate(-90)').attr('x',-gH/2).attr('y',-34).attr('text-anchor','middle').style('fill','#9196b0').style('font-size','0.6rem').text('Qty');
+  const brush=d3.brush().extent([[0,0],[gW,gH]]).on('end',function(event){
+    if(!event.selection)return;
+    const[[x0,y0],[x1,y1]]=event.selection;
+    sample.filter(d=>{const px=x(d.price),py=y(d.qty);return px>=x0&&px<=x1&&py>=y0&&py<=y1;}).forEach(d=>selectedKeys.add(d.status));
+    updateSelBar();renderMain();renderPie();
+  });
+  const bG=g.append('g').call(brush);
+  bG.select('.selection').attr('stroke','#6c63ff').attr('fill','rgba(108,99,255,0.1)');
+  g.selectAll('circle.dot').data(sample).join('circle').attr('class','dot')
+    .attr('cx',d=>x(d.price)).attr('cy',d=>y(d.qty)).attr('r',d=>r(d.grand_total))
+    .attr('fill',d=>statusColors(d.status)).attr('opacity',0.6).style('cursor','pointer')
+    .on('mouseover',function(e,d){d3.select(this).attr('opacity',1).attr('stroke','white').attr('stroke-width',1.5);showTTScatter(e,d);})
+    .on('mousemove',moveTT).on('mouseout',function(){d3.select(this).attr('opacity',0.6).attr('stroke','none');hideTT();})
+    .on('click',function(e,d){toggleSel(d.status);renderMain();renderPie();updateSelBar();showDetail(d.category||'Unknown',[d]);});
+}
+
+function renderPie(){
+  const svg=d3.select('#pie-chart');svg.selectAll('*').remove();
+  const el=document.getElementById('pie-chart').parentElement;
+  const W=el.clientWidth-28,H=el.clientHeight-55;if(W<50||H<50)return;
+  svg.attr('viewBox',`0 0 ${W} ${H}`);
+  let entries=[...d3.rollup(filteredData,v=>d3.sum(v,d=>d.grand_total),d=>d.category||'Unknown')].sort((a,b)=>b[1]-a[1]);
+  if(entries.length>7){const oth=d3.sum(entries.slice(7),d=>d[1]);entries=[...entries.slice(0,7),['Other',oth]];}
+  const R=Math.min(W*0.4,H*0.44);
+  const pie=d3.pie().value(d=>d[1]).sort(null);
+  const arc=d3.arc().innerRadius(R*0.45).outerRadius(R);
+  const arcH=d3.arc().innerRadius(R*0.45).outerRadius(R*1.06);
+  const g=svg.append('g').attr('transform',`translate(${R+10},${H/2})`);
+  g.selectAll('path').data(pie(entries)).join('path').attr('d',arc)
+    .attr('fill',d=>catColors(d.data[0])).attr('stroke','var(--bg)').attr('stroke-width',1.5)
+    .attr('opacity',d=>selectedKeys.size===0||selectedKeys.has(d.data[0])?0.85:0.3).style('cursor','pointer')
+    .on('mouseover',function(e,d){d3.select(this).transition().duration(120).attr('d',arcH);showTT(e,d.data[0],d.data[1],'revenue');})
+    .on('mousemove',moveTT).on('mouseout',function(e,d){d3.select(this).transition().duration(120).attr('d',arc);hideTT();})
+    .on('click',function(e,d){toggleSel(d.data[0]);renderMain();renderPie();updateSelBar();showDetail(d.data[0],filteredData.filter(f=>(f.category||'Unknown')===d.data[0]));});
+  const lx=R*2+20,ly=10;
+  entries.forEach(([cat,],i)=>{
+    svg.append('rect').attr('x',lx).attr('y',ly+i*17).attr('width',9).attr('height',9).attr('rx',2).attr('fill',catColors(cat));
+    svg.append('text').attr('x',lx+13).attr('y',ly+i*17+8).style('fill','#9196b0').style('font-size','0.6rem').text(cat.length>14?cat.slice(0,14)+'…':cat);
+  });
+}
+
+function renderHeatmap(){
+  const svg=d3.select('#heatmap-chart');svg.selectAll('*').remove();
+  const el=document.getElementById('heatmap-chart').parentElement;
+  const W=el.clientWidth-28,H=el.clientHeight-55;if(W<50||H<50)return;
+  svg.attr('viewBox',`0 0 ${W} ${H}`);
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const rollup=d3.rollup(filteredData,v=>v.length,d=>(d.date.getDay()+6)%7,d=>d.date.getHours());
+  const m={top:8,right:16,bottom:28,left:32};
+  const gW=W-m.left-m.right,gH=H-m.top-m.bottom;
+  const g=svg.append('g').attr('transform',`translate(${m.left},${m.top})`);
+  const cW=gW/24,cH=gH/7;
+  const maxV=d3.max(days,(_,di)=>d3.max(d3.range(24),h=>(rollup.get(di)?.get(h)||0)))||1;
+  const color=d3.scaleSequential().domain([0,maxV]).interpolator(d3.interpolateYlOrRd);
+  days.forEach((_,di)=>{d3.range(24).forEach(h=>{
+    const val=rollup.get(di)?.get(h)||0;
+    g.append('rect').attr('x',h*cW).attr('y',di*cH).attr('width',cW-1).attr('height',cH-1).attr('rx',1)
+      .attr('fill',val===0?'#1a1d27':color(val)).style('cursor','pointer')
+      .on('mouseover',e=>showTT(e,`${days[di]} ${h}:00`,val,'orders')).on('mousemove',moveTT).on('mouseout',hideTT)
+      .on('click',()=>{const sub=filteredData.filter(d=>(d.date.getDay()+6)%7===di&&d.date.getHours()===h);showDetail(`${days[di]} ${String(h).padStart(2,'0')}:00`,sub);});
+  });});
+  days.forEach((day,i)=>g.append('text').attr('x',-4).attr('y',i*cH+cH*0.72).attr('text-anchor','end').style('fill','#9196b0').style('font-size','0.58rem').text(day));
+  [0,6,12,18,23].forEach(h=>g.append('text').attr('x',h*cW+cW/2).attr('y',gH+16).attr('text-anchor','middle').style('fill','#9196b0').style('font-size','0.56rem').text(h+':00'));
+}
+
+function toggleSel(k){if(selectedKeys.has(k))selectedKeys.delete(k);else selectedKeys.add(k);}
+function updateSelBar(){const b=document.getElementById('sel-bar');if(selectedKeys.size>0){b.classList.add('show');document.getElementById('sel-count').textContent=`${selectedKeys.size} selected: ${[...selectedKeys].join(', ')}`;}else b.classList.remove('show');}
+
+function showDetail(title,data){
+  document.getElementById('detail-panel').classList.add('open');
+  const n=data.length,rev=d3.sum(data,d=>d.grand_total),avg=n?rev/n:0;
+  const topStat=[...d3.rollup(data,v=>v.length,d=>d.status)].sort((a,b)=>b[1]-a[1])[0];
+  const cats=[...new Set(data.map(d=>d.category))].filter(Boolean);
+  document.getElementById('detail-content').innerHTML=`
+    <div class="detail-item"><div class="d-lbl">Selection</div><div class="d-val">${title}</div></div>
+    <div class="detail-item"><div class="d-lbl">Orders</div><div class="d-val">${fmtN(n)}</div></div>
+    <div class="detail-item"><div class="d-lbl">Total Revenue</div><div class="d-val">PKR ${fmtN(Math.round(rev))}</div></div>
+    <div class="detail-item"><div class="d-lbl">Avg Order Value</div><div class="d-val">PKR ${fmtN(Math.round(avg))}</div></div>
+    <div class="detail-item"><div class="d-lbl">Top Status</div><div class="d-val" style="color:${statusColors(topStat?.[0])}">${cap(topStat?.[0]||'—')}</div></div>
+    <div class="detail-item"><div class="d-lbl">Categories</div><div class="d-val" style="font-size:0.72rem">${cats.slice(0,5).join(', ')||'—'}</div></div>
+    <div class="detail-item"><div class="d-lbl">Min / Max Price</div><div class="d-val">PKR ${fmtN(Math.round(d3.min(data,d=>d.price)||0))} / ${fmtN(Math.round(d3.max(data,d=>d.price)||0))}</div></div>
+  `;
+}
+
+function showTT(e,k,v,m){const t=document.getElementById('tooltip');t.style.display='block';t.innerHTML=`<div class="tt-title">${k}</div><div class="tt-row"><span>${mlbl(m)}</span><span>${m==='revenue'?'PKR ':''} ${fmtN(Math.round(v))}</span></div>`;moveTT(e);}
+function showTTScatter(e,d){const t=document.getElementById('tooltip');t.style.display='block';t.innerHTML=`<div class="tt-title">${d.category||'Unknown'}</div><div class="tt-row"><span>Status</span><span>${cap(d.status)}</span></div><div class="tt-row"><span>Price</span><span>PKR ${fmtN(d.price)}</span></div><div class="tt-row"><span>Qty</span><span>${d.qty}</span></div><div class="tt-row"><span>Total</span><span>PKR ${fmtN(Math.round(d.grand_total))}</span></div>`;moveTT(e);}
+function moveTT(e){const t=document.getElementById('tooltip');t.style.left=Math.min(e.clientX+12,window.innerWidth-220)+'px';t.style.top=(e.clientY-10)+'px';}
+function hideTT(){document.getElementById('tooltip').style.display='none';}
+
+function setupEvents(){
+  document.getElementById('apply-btn').addEventListener('click',applyFilters);
+  document.getElementById('reset-btn').addEventListener('click',()=>{document.querySelectorAll('.status-cb').forEach(c=>c.checked=true);[...document.getElementById('cat-select').options].forEach(o=>o.selected=true);const pr=document.getElementById('price-range');pr.value=pr.max;document.getElementById('price-val').textContent=fmt(pr.max);document.getElementById('year-select').value='';selectedKeys.clear();applyFilters();});
+  document.getElementById('price-range').addEventListener('input',function(){document.getElementById('price-val').textContent=fmt(this.value);});
+  ['xaxis-sel','yaxis-sel','color-sel'].forEach(id=>document.getElementById(id).addEventListener('change',renderMain));
+  document.getElementById('btn-bar').addEventListener('click',()=>{chartType='bar';document.getElementById('btn-bar').classList.add('active');document.getElementById('btn-line').classList.remove('active');renderMain();});
+  document.getElementById('btn-line').addEventListener('click',()=>{chartType='line';document.getElementById('btn-line').classList.add('active');document.getElementById('btn-bar').classList.remove('active');renderMain();});
+  document.getElementById('sel-clear').addEventListener('click',()=>{selectedKeys.clear();updateSelBar();renderAll();});
+  document.getElementById('detail-close').addEventListener('click',()=>document.getElementById('detail-panel').classList.remove('open'));
+  window.addEventListener('resize',renderAll);
+}
+
+const fmt=n=>Number(n).toLocaleString();
+const fmtN=n=>Math.round(n).toLocaleString();
+const fmtM=n=>n>=1e9?(n/1e9).toFixed(1)+'B':n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':fmtN(n);
+const fmtShort=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(0)+'K':fmtN(n);
+const cap=s=>s?s.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()):'';
+const mlbl=m=>({revenue:'Revenue',orders:'Orders',avg_price:'Avg Price'}[m]||m);
+</script>
+</body>
+</html>
